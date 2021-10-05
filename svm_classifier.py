@@ -224,7 +224,7 @@ class LinearSVM:
         final_class_weights = dict(zip(classes, class_weights))
         return final_class_weights
 
-    def predict(self, model, X_test: pd.DataFrame) -> pd.Series:
+    def predict(self, model: Pipeline, X_test: pd.DataFrame) -> pd.Series:
         preds = model.predict(X_test)
         return preds
 

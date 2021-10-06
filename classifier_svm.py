@@ -107,7 +107,7 @@ class LinearSVM:
                 (
                     "clf",
                     SGDClassifier(
-                        loss="hinge",
+                        loss="modified_huber",
                         penalty="l2",
                         alpha=5e-4,
                         random_state=42,

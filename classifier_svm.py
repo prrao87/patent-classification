@@ -23,7 +23,7 @@ from spacy.tokens.doc import Doc
 from typing import List, Tuple, Set
 
 # Concurrency
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, dump
 from functools import partial
 from multiprocessing import cpu_count
 
@@ -49,7 +49,9 @@ class ConcurrentPreprocessor:
         Perform lemmatization and stopword removal on clean text input
         """
         lemma_list = [
-            tok.lemma_ for tok in doc if tok.is_alpha and tok.text not in stopwords
+            tok.lemma_
+            for tok in doc
+            if tok.is_alpha and tok.text.lower() not in stopwords
         ]
         return lemma_list
 
@@ -105,9 +107,9 @@ class LinearSVM:
                 (
                     "clf",
                     SGDClassifier(
-                        loss="modified_huber",
+                        loss="hinge",
                         penalty="l2",
-                        alpha=1e-3,
+                        alpha=5e-4,
                         random_state=42,
                         max_iter=100,
                         learning_rate="optimal",
@@ -167,7 +169,7 @@ def get_stopwords(filename: str = "stopwords.txt") -> Set[str]:
     """
     Read in stopwords from a newline-separated text file
     """
-    with open("stopwords.txt") as f:
+    with open(filename) as f:
         stopwords = set(sorted([word.strip() for word in f]))
     return stopwords
 
@@ -207,10 +209,11 @@ def model_performance(true: pd.Series, pred: pd.Series) -> None:
     macro_f1 = f1_score(true, pred, average="macro")
     micro_f1 = f1_score(true, pred, average="micro")
     weighted_f1 = f1_score(true, pred, average="weighted")
+    # TODO: Use logger instead of print statements
     print(
-        f"Macro F1: {100*macro_f1:.3f}\nMicro F1: {100*micro_f1:.3f}\nWeighted F1: {100*weighted_f1:.3f}"
+        f"Macro F1: {100*macro_f1:.3f} %\nMicro F1: {100*micro_f1:.3f} %\nWeighted F1: {100*weighted_f1:.3f} %"
     )
-    print(f"Accuracy: {100*accuracy:.3f}")
+    print(f"Accuracy: {100*accuracy:.3f} %")
 
 
 def plot_confusion_matrix(
@@ -269,6 +272,8 @@ if __name__ == "__main__":
     nlp = spacy.load("en_core_web_sm")
 
     print("Transforming and lemmatizing data")
-    data_df = transform_data(nlp, data_file="data.json")
+    data_df = transform_data(nlp, data_file="data_2020_wk52.json")
     svm = LinearSVM(data_df)
-    svm.train_and_predict()
+    model = svm.train_and_predict()
+    # Dump model to disk using joblib
+    dump(model, "svm_model.joblib")

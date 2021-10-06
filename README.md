@@ -108,42 +108,42 @@ D      37
 
 ### Experiments
 
-#### 1. Hinge loss, no class weighting
+#### 1. Hinge loss, no class weighting, l2-reg alpha=0.0005
 The default loss function, which is `hinge` loss, gives a linear SVM. The initial training run is made without handling class imbalance, i.e., with equal cost weighting applied to all classes, to see the effect of later experiments. The following results are obtained.
 
 ```
-Macro F1: 51.368 %
-Micro F1: 64.799 %
-Weighted F1: 63.412 %
-Accuracy: 64.799 %
+Macro F1: 53.349 %
+Micro F1: 66.595 %
+Weighted F1: 65.570 %
+Accuracy: 66.595 %
 ```
 
 ![](img/svm_hinge_1.png)
 
 This initial classifier is a rather poor one, because, as the confusion matrix shows, it has poor discrimatory power toward the minority classes ('D' and 'E'). 
 
-#### 2. Hinge loss, with balanced class weighting
+#### 2. Hinge loss, with balanced class weighting, l2-reg alpha=0.0005
 To address class imbalance, the next attempt is to apply a cost-sensitive weighting function to the classes during training, as shown above. The following results are obtained. The overall accuracy and weighted F1-scores are slightly lower than before, but, there is a slight increase in Macro F1-score, indicating that the cost-sensitive weighting improves the classifier's sensitivity to the minority classes.
 
 ```
-Macro F1: 52.900 %
-Micro F1: 61.422 %
-Weighted F1: 62.315 %
-Accuracy: 61.422 %
+Macro F1: 56.192 %
+Micro F1: 63.721 %
+Weighted F1: 64.544 %
+Accuracy: 63.721 %
 ```
 
 ![](img/svm_hinge_2.png)
 
 From the confusion matrix, it is clear that the minority classes 'D' and 'E' are much better predicted in this model. However, the overall accuracy and F1 scores dropped because of a loss of performance across the other classes, likely due to underfitting and an insufficient degree of convergence.
 
-#### 3. Modified Huber loss, with balanced class weighting
+#### 3. Modified Huber loss, with balanced class weighting, l2-reg alpha=0.0005
 Modified Huber is another smooth loss function that is more tolerant to outliers in the feature space as compared to mean-squared loss (typically used in regression problems). As mentioned in the [`sklearn` documentation](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html), this loss function can prove useful in classification problems as well, as it brings more tolerance to the probability estimates as well. This results in improved performance as shown below.
 
 ```
-Macro F1: 58.294 %
-Micro F1: 66.236 %
-Weighted F1: 66.725 %
-Accuracy: 66.236 %
+Macro F1: 59.116 %
+Micro F1: 66.739 %
+Weighted F1: 67.220 %
+Accuracy: 66.739 %
 ```
 
 In this case, the macro F1-score is the highest among all the cases, because of uniformly better performance across all classes. The weighted F1-score and accuracy are also significantly higher than the cases which used hinge loss, indicating that this choice of loss function is more suited to the feature space of our problem.
@@ -157,7 +157,7 @@ Without running any further hyperparameter tuning or grid search experiments, th
     SGDClassifier(
         loss="modified_huber",
         penalty="l2",
-        alpha=1e-3,
+        alpha=5e-4,
         random_state=42,
         max_iter=100,
         learning_rate="optimal",
@@ -170,6 +170,6 @@ The following normalized confusion matrix was obtained with the best model that 
 
 ![](img/svm_modified_huber_best.png)
 
-Each value in a cell represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data still produces moderately decent results for the majority and minority classes in this dataset.
+Each value in a cell represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data results in model with a moderately decent predictive power for the majority and minority classes in this dataset.
 ## Can we do better with transformers?
 In progress...

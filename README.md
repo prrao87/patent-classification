@@ -153,6 +153,6 @@ The following normalized confusion matrix was obtained with the best model that 
 
 ![](img/svm_modified_huber_best.png)
 
-Each value in a cell represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data still produces moderately okay results for the minority classes (G and H in this dataset.)
+Each value in a cell represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data still produces moderately decent results for the majority and minority classes in this dataset.
 ## Can we do better with transformers?
 In progress...

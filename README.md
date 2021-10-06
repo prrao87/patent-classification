@@ -49,7 +49,7 @@ Note that the `section_label` field refers to the top-level of the classificatio
 
 ## Baseline model: Linear Support Vector Machine (SVM)
 
-The baseline model trained is a linear SVM, via the [`sklearn` library's `SGDClassifier`](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html)). This model implements an L2-regularized linear model with stochastic gradient descent with mini-batching, making it a good choice for quickly training a reasonable model for benchmarking purposes.
+The baseline model trained is a linear SVM, via the [`sklearn` library's `SGDClassifier`](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html)). This model implements an L2-regularized linear model with stochastic gradient descent and mini-batching, making it a good choice for quickly training a reasonable model for benchmarking purposes.
 
 ### Additional data processing steps
 To reduce the number of redundant features the model has to learn, it makes sense to clean up the text data in a way that words are collapsed to their root form. Lemmatization is a good option, as it reduces inflectional forms of a word ("condenses" becomes "condense"). [**spaCy**](https://spacy.io/) is an NLP library that allows us to efficiently process and lemmatize text through a lookup process that can be made concurrent to deal with large amounts of data in batches.
@@ -59,6 +59,35 @@ The following data processing steps are performed on the `data.json` file genera
 * __Stopword removal__: Allows us to ignore useless tokens that don't add discriminatory potential ("a", "an", "the")
 * __Lemmatization__: Reduces inflectional forms of words to their root form (lemmas)
 * __Combine title and abstract__: The title of a patent contains useful tokens that are commonly repeated in the abstract -- this could help strengthen the training signal by allowing the model to learn the importance of repeated tokens across classes
+
+### Cost-sensitive weighting
+In a classification task, it is possible to consider misclassification cost into account during training. This is done by changing the penalty imposed on the learner for misclassifying classes, based on the proportion of training samples per class. In `sklearn`, this can be done by applying a balanced weighting function. The “balanced” term implies that the values of the true class labels are adjusted using weights that are inversely proportional to class frequencies in the input data as `n_samples / (n_classes * np.bincount(y))`. The following results are obtained.
+
+```
+{
+    'A': 0.9547325102880658,
+    'B': 1.0943396226415094,
+    'C': 2.005763688760807,
+    'D': 24.857142857142858,
+    'E': 6.444444444444445,
+    'F': 2.005763688760807,
+    'G': 0.3945578231292517,
+    'H': 0.43256681168427596
+}
+```
+The weighting factors above make sense: Class 'D' has the highest weight because it has by far the fewest training samples. Class 'G' has the lowest weight because it has the most number of training samples.
+
+```
+Number of training samples:
+G    2177
+H    2019
+A     919
+B     810
+F     432
+C     421
+E     145
+D      37
+```
 
 ### Experiments
 
@@ -72,8 +101,12 @@ Weighted F1: 63.412 %
 Accuracy: 64.799 %
 ```
 
+![](img/svm_hinge_1.png)
+
+This initial classifier is a rather poor one, because, as the confusion matrix shows, it has poor discrimatory power toward the minority classes ('D' and 'E'). 
+
 #### 2. Hinge loss, with balanced class weighting
-To address class imbalance, we can apply a cost-sensitive weighting function to the classes during training. The “balanced” mode uses the values of the true class labels to automatically adjust weights inversely proportional to class frequencies in the input data as `n_samples / (n_classes * np.bincount(y))`. The following results are obtained.
+To address class imbalance, the next attempt is to apply a cost-sensitive weighting function to the classes during training, as shown above. The following results are obtained. The overall accuracy and weighted F1-scores are slightly lower than before, but, there is a slight increase in Macro F1-score, indicating that the cost-sensitive weighting improves the classifier's sensitivity to the minority classes.
 
 ```
 Macro F1: 52.900 %
@@ -82,7 +115,10 @@ Weighted F1: 62.315 %
 Accuracy: 61.422 %
 ```
 
-The overall accuracy and weighted F1-scores dropped, although there is a slight increase in Macro F1-score.
+![](img/svm_hinge_2.png)
+
+From the confusion matrix, it is clear that the minority classes 'D' and 'E' are much better predicted in this model. However, the overall accuracy and F1 scores dropped because of a loss of performance across the other classes, likely due to underfitting and an insufficient degree of convergence.
+
 #### 3. Modified Huber loss, with balanced class weighting
 Modified Huber is another smooth loss function that is more tolerant to outliers in the feature space as compared to mean-squared loss (typically used in regression problems). As mentioned in the [`sklearn` documentation](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html), this loss function can prove useful in classification problems as well, as it brings more tolerance to the probability estimates as well. This results in improved performance as shown below.
 
@@ -93,10 +129,10 @@ Weighted F1: 66.725 %
 Accuracy: 66.236 %
 ```
 
-Not only is the macro F1-score the highest among all the cases, but also, the weighted F1-score and accuracy are significantly higher than the cases which used hinge loss.
+In this case, the macro F1-score is the highest among all the cases, because of uniformly better performance across all classes. The weighted F1-score and accuracy are also significantly higher than the cases which used hinge loss, indicating that this choice of loss function is more suited to the feature space of our problem.
 
-### Best `SGDClassifier` model parameters
-Without running any hyperparameter tuning or grid search experiments, the best results from the SVM classifier were obtained using the below parameters.
+### Best `SGDClassifier` model parameters for the baseline
+Without running any further hyperparameter tuning or grid search experiments, the best baseline model results were obtained using the below parameters.
 
 ```py
 (

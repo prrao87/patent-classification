@@ -1,5 +1,5 @@
 # Patent Classification
-**Goal**: To train a machine learning classifier that can classify international patents into one of eight categories based on the textual content of their titles/abstracts. 
+**Goal**: To train a machine learning classifier that can automatically classify international patents [downloaded from the WIPO website](https://www.wipo.int/classifications/ipc/en/) into one of eight categories based on the textual content of their titles/abstracts.
 
 * The patent data is available as raw XML from this URL: https://bulkdata.uspto.gov/
 * Each large zipped file contains a single file, with multiple XML blocks
@@ -16,9 +16,13 @@ D: Textiles; paper
 E: Fixed constructions
 F: Mechanical engineering; lighting; heating; weapons; blasting
 G: Physics
-H: Electricty
+H: Electricity
 ```
-More information on the taxonomy of the patent classes, as well as their subcategories, is [available on the WIPO website](https://www.wipo.int/publications/en/series/index.jsp?id=183).
+
+A detailed guide to the WIPO classification taxonomy is [available on the WIPO website](https://www.wipo.int/publications/en/series/index.jsp?id=183).
+In addition, more information on the content taxonomy is available in the following document:
+
+> [Guide to the International Patent Classification, 2020 Edition](https://www.wipo.int/edocs/pubdocs/en/wipo_guide_ipc_2020.pdf), part II, p5.
 
 
 ## Installation
@@ -35,6 +39,13 @@ For further development, simply activate the existing virtual environment.
 ```sh
 $ source .venv/bin/activate
 ```
+### Download and install spaCy language model
+Within the activated virtual environment, once the dependencies are installed from `requirements.txt`, run the following command:
+
+```
+$ python3 -m spacy download en_core_web_sm
+```
+This provides the standard (small) spaCy's English language model for downstream lemmatization, explained below.
 
 ## Preprocessing
 The preprocessing script requires that an unzipped raw XML file (with information on hundreds of patents) exists in the `raw_data/` directory. As an example, the following file is [downloaded from the source](https://bulkdata.uspto.gov/data/patent/grant/redbook/2020/I20200107.tar), uncompressed, and stored in the below path in XML format:
@@ -58,10 +69,7 @@ data = {
     "label": section_label,
 }
 ```
-Note that the `section_label` field refers to the top-level of the classification hierarchy, which belongs to one of eight classes: A, B, C, D, E, F, G or H. Each letter refers to a particular section label from the IPC hierarchy (Physics, Chemistry, Engineering, etc.). More information on this can be found on the WIPO website:
-
-> [Guide to the International Patent Classification, 2020 Edition](https://www.wipo.int/edocs/pubdocs/en/wipo_guide_ipc_2020.pdf), part II, p5.
-
+Note that the `section_label` field here refers to the top-level of the classification hierarchy (8 categories, from A-H).
 ---
 
 ## Baseline model: Linear Support Vector Machine (SVM)

@@ -12,7 +12,7 @@ D: Textiles; paper
 E: Fixed constructions
 F: Mechanical engineering; lighting; heating; weapons; blasting
 G: Physics
-H: Electricty
+H: Electricity
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,7 +58,7 @@ class ConcurrentPreprocessor:
     def chunker(self, iterable: List[str], total_length: int, chunksize: int):
         """Divide an iterable into chunks that can be worked on concurrently"""
         return (
-            iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize)
+            iterable[pos: pos + chunksize] for pos in range(0, total_length, chunksize)
         )
 
     def process_chunk(self, stopwords: Set[str], texts: List[str]) -> List[List[str]]:
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     nlp = spacy.load("en_core_web_sm")
 
     print("Transforming and lemmatizing data")
-    data_df = transform_data(nlp, data_file="data_2020_wk52.json")
+    data_df = transform_data(nlp, data_file="data_ipgb20201229_wk52.jsonl")
     svm = LinearSVM(data_df)
     model = svm.train_and_predict()
     # Dump model to disk using joblib

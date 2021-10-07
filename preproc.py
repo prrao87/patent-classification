@@ -102,33 +102,36 @@ def extract_abstracts_and_titles(xml_file: str) -> Dict[str, str]:
         else:
             data = {}
     except Exception as e:
+        # TODO: Use logger instead of print statements
         print(f"{e}. Missing element in `{xml_file}`. Ignoring...")
         data = {}
     return data
 
 
-def write_json_data(xml_files: List[str]) -> None:
+def write_json_data(xml_files: List[str], dir: str) -> None:
     """
     Iterate through each XML file and write data to a JSON file
     """
-    with open("data.json", "w") as f:
+    with open(f"data_{dir}.jsonl", "w") as f:
         for xml_file in tqdm(xml_files):
             data = extract_abstracts_and_titles(xml_file)
             if data:
                 f.write(json.dumps(data) + "\n")
 
 
-def main() -> None:
+def main(dir: str, raw_xml_file: str) -> None:
     # path to input raw XML data
-    xml_file = os.path.join("./raw_data", "ipgb20201229_wk52", "ipgb20201229.xml")
+    xml_file = os.path.join("./raw_data", dir, raw_xml_file)
     # path to output clean XML data
     clean_data_path = "clean_data"
     # separate into valid XML chunks and write to individual files
     separate_xml(xml_file, clean_data_path)
     # Read in XML files and write to JSON
     xml_files = get_xml_file_list(clean_data_path)
-    write_json_data(xml_files)
+    write_json_data(xml_files, dir)
 
 
 if __name__ == "__main__":
-    main()
+    dir = "ipgb20200107_wk01"
+    raw_xml_file = "ipgb20200107.xml"
+    main(dir, raw_xml_file)

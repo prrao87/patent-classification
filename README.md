@@ -179,5 +179,88 @@ The following normalized confusion matrix was obtained with the best model that 
 ![](img/svm_modified_huber_best.png)
 
 Each value in a cell represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data results in model with a moderately decent predictive power for the majority and minority classes in this dataset.
+
+---
 ## Can we do better with transformers?
-In progress...
+
+### 🤗 DistilBERT
+
+The DistilBERT model was first proposed in the paper [DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter](https://arxiv.org/abs/1910.01108). It has **40%** less parameters than `bert-base-uncased`, runs **60%** faster while preserving over **95%** of BERT’s performance as measured on the GLUE language understanding benchmark.
+
+#### Data preprocessing and tokenization
+
+We use the `distilbert-base-uncased` tokenizer. Case-sensitivity is not a concern in this dataset because typical patents we encounter consist of well-formatted text with almost no typos/misspellings, and we would expect words in the data to retain context regardless of capitalization.
+
+The data is loaded and transformed (i.e., encoded into input IDs with attention masks) through a combination of the Hugging Face [Datasets library](https://huggingface.co/docs/datasets/), as well as their [Tokenizers library](https://github.com/huggingface/tokenizers). The Datasets pipeline allows us to easily generate train/validation/test splits from a range of raw data sources, and the Tokenizers pipeline efficiently encodes the vocabulary of the dataset into a form that the DistilBERT `trainer` instance can make use of.
+
+#### Model training
+The model is trained using the `classifier_distilbert_train.py` script provided in this repo as follows.
+
+```
+$ python3 classifier_distilbert_train.py
+```
+Verify that the training loss goes down in each epoch, and that the validation F1 increases accordingly. This outputs the model weights to the `pytorch_model/` directory
+
+#### Model optimization and compression
+
+A big concern with deep learning models is the computational cost associated with making inferences on real world data in production. One approach to make the inference process more efficient is to optimize and quantize the PyTorch model via [ONNX](https://github.com/onnx/onnx), an open source framework that provides a standard interface for optimizing deep learning models and their computational graphs.
+
+On average, a **30x** speedup in CPU-based inference, along with a **4x** reduction in model size is observed for an optimized, quantized DistilBERT-ONNX model (compared to the base DistilBERT-PyTorch model that we trained on GPU).
+
+### Use 🤗 Hugging Face command line module to convert to ONNX
+
+See the [PyTorch documentation](https://pytorch.org/docs/stable/quantization.html) for a more detailed description of quantization, as well as the difference between static and dynamic quantization.
+
+The following command is used to convert the PyTorch model to an ONNX model. First, `cd` to an **empty directory** in which we want the ONNX model file to be saved, and then specify the source PyTorch model path (that contains a valid `config.json`) in relation to the current path. An example is shown below.
+
+```sh
+# Assume that the PyTorch model weights (.bin file) are in the pytorch_model/ directory
+cd onnx_model
+python3 -m transformers.convert_graph_to_onnx \
+  --framework pt \
+  --model pytorch_model \
+  --tokenizer distilbert-base-uncased \
+  --quantize onnx_model \
+  --pipeline sentiment-analysis
+```
+
+Note that we need to specify the `--pipeline sentiment-analysis` argument to avoid input array broadcasting issues as per the Hugging Face API. Specifying the `sentiment-analysis` argument forces it to use sequence classification tensor shapes during export, so the correct outputs are sent to the ONNX compute layers.
+
+The quantized ONNX model file is then generated with in the current directory, which can then be used to make much more rapid inferences on CPU.
+
+### DistilBERT results
+The evaluation script `classifier_distilbert_evaluate.py` is run to produce the following results.
+
+```
+Macro F1: 64.050 %
+Micro F1: 80.603 %
+Weighted F1: 80.041 %
+Accuracy: 80.603 %
+```
+
+![](img/distilbert_no_weighting.png)
+
+Although the transformer-based classifier is performing much, much better on the majority classes ("G", "H"), the confusion matrix shows that it has almost no predictive power toward the minority classes (especially "D", which had far too few training samples -- just 37 overall in the original data).
+
+#### Remedy
+The best way to improve the DistilBERT classifier's predictive power toward the minority class would be to obtain more training samples and to reduce overall class imbalance. This can be done by scraping and obtaining more patent data over multiple months for the minority classes ("D" and "E"). In general, a few hundred training samples per class should suffice during fine-tuning transformer models (a couple thousand would be ideal).
+
+In addition, just like in the case with the SVM, it is possible to perform cost-sensitive weighting for the transformer model by subclassing the `Trainer` instance and passing the class weights to the `CrossEntropy` loss as follows:
+
+```py
+class CostSensitiveTrainer(Trainer):
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.get("labels")
+        outputs = model(**inputs)
+        logits = outputs.get("logits")
+        loss_fct = torch.nn.CrossEntropyLoss(weight=weights)
+        loss = loss_fct(
+            logits.view(-1, self.model.config.num_labels),
+            labels.float().view(-1, self.model.config.num_labels),
+        )
+        return (loss, outputs) if return_outputs else loss
+```
+
+See [this GitHub issue](https://github.com/huggingface/transformers/issues/7024) on the 🤗 Hugging Face transformers repo for more details.
+
+Happy training!

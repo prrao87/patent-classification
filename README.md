@@ -114,7 +114,12 @@ E     145
 D      37
 ```
 
-### Experiments
+### Experiments and SVM results
+
+The SVM trainer and evaluator is run as follows:
+```
+$ python3 classifier_svm.py
+```
 
 #### 1. Hinge loss, no class weighting, l2-reg alpha=0.0005
 The default loss function, which is `hinge` loss, gives a linear SVM. The initial training run is made without handling class imbalance, i.e., with equal cost weighting applied to all classes, to see the effect of later experiments. The following results are obtained.
@@ -215,8 +220,8 @@ The following command is used to convert the PyTorch model to an ONNX model. Fir
 
 ```sh
 # Assume that the PyTorch model weights (.bin file) are in the pytorch_model/ directory
-cd onnx_model
-python3 -m transformers.convert_graph_to_onnx \
+$ cd onnx_model
+$ python3 -m transformers.convert_graph_to_onnx \
   --framework pt \
   --model pytorch_model \
   --tokenizer distilbert-base-uncased \
@@ -230,6 +235,10 @@ The quantized ONNX model file is then generated with in the current directory, w
 
 ### DistilBERT results
 The evaluation script `classifier_distilbert_evaluate.py` is run to produce the following results.
+
+```
+$ python3 classifier_distilbert_evaluate.py
+```
 
 ```
 Macro F1: 64.050 %

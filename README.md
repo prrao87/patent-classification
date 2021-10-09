@@ -69,7 +69,9 @@ data = {
     "label": section_label,
 }
 ```
+
 Note that the `section_label` field here refers to the top-level of the classification hierarchy (8 categories, from A-H).
+
 ---
 
 ## Baseline model: Linear Support Vector Machine (SVM)
@@ -117,6 +119,7 @@ D      37
 ### Experiments and SVM results
 
 The SVM trainer and evaluator is run as follows:
+sh
 ```
 $ python3 classifier_svm.py
 ```
@@ -138,7 +141,7 @@ This initial classifier is a rather poor one, because, as the confusion matrix s
 #### 2. Hinge loss, with balanced class weighting, l2-reg alpha=0.0005
 To address class imbalance, the next attempt is to apply a cost-sensitive weighting function to the classes during training, as shown above. The following results are obtained. The overall accuracy and weighted F1-scores are slightly lower than before, but, there is a slight increase in Macro F1-score, indicating that the cost-sensitive weighting improves the classifier's sensitivity to the minority classes.
 
-```
+```sh
 Macro F1: 56.192 %
 Micro F1: 63.721 %
 Weighted F1: 64.544 %
@@ -152,7 +155,7 @@ From the confusion matrix, it is clear that the minority classes 'D' and 'E' are
 #### 3. Modified Huber loss, with balanced class weighting, l2-reg alpha=0.0005
 Modified Huber is another smooth loss function that is more tolerant to outliers in the feature space as compared to mean-squared loss (typically used in regression problems). As mentioned in the [`sklearn` documentation](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html), this loss function can prove useful in classification problems as well, as it brings more tolerance to the probability estimates as well. This results in improved performance as shown below.
 
-```
+```sh
 Macro F1: 59.116 %
 Micro F1: 66.739 %
 Weighted F1: 67.220 %

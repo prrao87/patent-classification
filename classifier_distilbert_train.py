@@ -60,7 +60,7 @@ def get_encoded_data(tokenizer: AutoTokenizer, textcol: str = "text") -> Dataset
 def set_tokenizer(batch_size: int = 32) -> AutoTokenizer:
     tokenizer = AutoTokenizer.from_pretrained(
         model_checkpoint,
-        user_fast=True,
+        use_fast=True,
         max_length=512,
         padding=True,
         truncation=True,

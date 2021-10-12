@@ -64,7 +64,7 @@ def plot_confusion_matrix(
     return fig, ax
 
 
-def model_performance(true, pred) -> None:
+def model_performance(true: pd.Series, pred: pd.Series) -> None:
     """
     Print out relevant model performance metrics
     """

@@ -35,6 +35,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.utils import class_weight
 
+
 class ConcurrentPreprocessor:
     """
     Concurrently preprocess text for downstream ML model training
@@ -57,7 +58,7 @@ class ConcurrentPreprocessor:
     def chunker(self, iterable: List[str], total_length: int, chunksize: int):
         """Divide an iterable into chunks that can be worked on concurrently"""
         return (
-            iterable[pos: pos + chunksize] for pos in range(0, total_length, chunksize)
+            iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize)
         )
 
     def process_chunk(self, stopwords: Set[str], texts: List[str]) -> List[List[str]]:
@@ -118,6 +119,23 @@ class LinearSVM:
             ]
         )
 
+    def train_and_evaluate(self) -> Pipeline:
+        X_train, X_test, y_train, y_test = self.split_data()
+        class_weights = self.compute_class_weights(y_train)
+        print("Beginning training...")
+        # Map class weights onto train DataFrame as a new column
+        weights_df = self.data.loc[X_train.index]["label"].map(class_weights)
+        model = self.pipeline.fit(X_train, y_train, clf__sample_weight=weights_df)
+        # model = self.pipeline.fit(X_train, y_train)
+
+        print("Finished training model.")
+        preds = self.predict(model, X_test)
+        # Print model performance
+        utils.model_performance(y_test, preds)
+        # Plot model performance as a confusion matrix
+        self._plot_performance(y_train, y_test, preds)
+        return model
+
     def split_data(self) -> Tuple[pd.DataFrame, ...]:
         train_test_data = train_test_split(
             self.data["lemmas"], self.data["label"], test_size=0.2, random_state=344535
@@ -137,31 +155,13 @@ class LinearSVM:
         preds = model.predict(X_test)
         return preds
 
-    def plot_performance(
-        self, y_train: pd.Series, true: pd.Series, pred: pd.Series
-    ) -> None:
+    @staticmethod
+    def _plot_performance(y_train: pd.Series, true: pd.Series, pred: pd.Series) -> None:
         # Plot confusion matrix
-        fig, ax = utils.plot_confusion_matrix(
+        fig, _ = utils.plot_confusion_matrix(
             true, pred, classes=np.unique(y_train), normalize=True
         )
         fig.savefig("confusion_matrix.png")
-
-    def train_and_predict(self) -> Pipeline:
-        X_train, X_test, y_train, y_test = self.split_data()
-        class_weights = self.compute_class_weights(y_train)
-        print("Beginning training...")
-        # Map class weights onto train DataFrame as a new column
-        weights_df = self.data.loc[X_train.index]["label"].map(class_weights)
-        model = self.pipeline.fit(X_train, y_train, clf__sample_weight=weights_df)
-        # model = self.pipeline.fit(X_train, y_train)
-
-        print("Finished training model.")
-        preds = self.predict(model, X_test)
-        # Print model performance
-        utils.model_performance(y_test, preds)
-        # Plot model performance as a confusion matrix
-        self.plot_performance(y_train, y_test, preds)
-        return model
 
 
 def get_stopwords(filename: str = "stopwords.txt") -> Set[str]:
@@ -191,21 +191,6 @@ def transform_data(
     return df
 
 
-def model_performance(true: pd.Series, pred: pd.Series) -> None:
-    """
-    Print out relevant model performance metrics
-    """
-    accuracy = accuracy_score(true, pred, normalize=True)
-    macro_f1 = f1_score(true, pred, average="macro")
-    micro_f1 = f1_score(true, pred, average="micro")
-    weighted_f1 = f1_score(true, pred, average="weighted")
-    # TODO: Use logger instead of print statements
-    print(
-        f"Macro F1: {100*macro_f1:.3f} %\nMicro F1: {100*micro_f1:.3f} %\nWeighted F1: {100*weighted_f1:.3f} %"
-    )
-    print(f"Accuracy: {100*accuracy:.3f} %")
-
-
 if __name__ == "__main__":
     # Load spaCy language model for lemmatization
     nlp = spacy.load("en_core_web_sm")
@@ -213,6 +198,6 @@ if __name__ == "__main__":
     print("Transforming and lemmatizing data")
     data_df = transform_data(nlp, data_file="data_ipgb20201229_wk52.jsonl")
     svm = LinearSVM(data_df)
-    model = svm.train_and_predict()
+    model = svm.train_and_evaluate()
     # Dump model to disk using joblib
     dump(model, "svm_model.joblib")

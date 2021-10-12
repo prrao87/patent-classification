@@ -136,7 +136,7 @@ Accuracy: 66.595 %
 
 ![](img/svm_hinge_1.png)
 
-This initial classifier is a rather poor one, because, as the confusion matrix shows, it has poor discrimatory power toward the minority classes ('D' and 'E'). 
+This initial classifier is a rather poor one, because, as the confusion matrix shows, it has poor discriminatory power with regard to the minority classes ('D' and 'E').
 
 #### 2. Hinge loss, with balanced class weighting, l2-reg alpha=0.0005
 To address class imbalance, the next attempt is to apply a cost-sensitive weighting function to the classes during training, as shown above. The following results are obtained. The overall accuracy and weighted F1-scores are slightly lower than before, but, there is a slight increase in Macro F1-score, indicating that the cost-sensitive weighting improves the classifier's sensitivity to the minority classes.

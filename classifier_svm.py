@@ -44,36 +44,6 @@ class ConcurrentPreprocessor:
     def __init__(self, nlp: Language) -> None:
         self.nlp = nlp
 
-    def lemmatize(self, doc: Doc, stopwords: Set[str]) -> List[str]:
-        """
-        Perform lemmatization and stopword removal on clean text input
-        """
-        lemma_list = [
-            tok.lemma_
-            for tok in doc
-            if tok.is_alpha and tok.text.lower() not in stopwords
-        ]
-        return lemma_list
-
-    def chunker(self, iterable: List[str], total_length: int, chunksize: int):
-        """Divide an iterable into chunks that can be worked on concurrently"""
-        return (
-            iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize)
-        )
-
-    def process_chunk(self, stopwords: Set[str], texts: List[str]) -> List[List[str]]:
-        """
-        Apply a spaCy language modelling pipeline and process a chunk of text
-        """
-        preproc_pipe = []
-        for doc in self.nlp.pipe(texts, batch_size=20):
-            preproc_pipe.append(self.lemmatize(doc, stopwords))
-        return preproc_pipe
-
-    def flatten(self, list_of_lists: List[List[str]]) -> List[str]:
-        """Flatten a list of lists to a single, combined list"""
-        return [item for sublist in list_of_lists for item in sublist]
-
     def run(
         self, texts: List[str], stopwords: Set[str], chunksize: int = 200
     ) -> List[str]:
@@ -86,10 +56,42 @@ class ConcurrentPreprocessor:
         )
         do = delayed(partial(self.process_chunk, stopwords))
         tasks = (
-            do(chunk) for chunk in self.chunker(texts, len(texts), chunksize=chunksize)
+            do(chunk) for chunk in self._chunker(texts, len(texts), chunksize=chunksize)
         )
-        result = self.flatten(executor(tasks))
+        result = self._flatten(executor(tasks))
         return result
+
+    def process_chunk(self, stopwords: Set[str], texts: List[str]) -> List[List[str]]:
+        """
+        Apply a spaCy language modelling pipeline and process a chunk of text
+        """
+        preproc_pipe = []
+        for doc in self.nlp.pipe(texts, batch_size=20):
+            preproc_pipe.append(self.lemmatize(doc, stopwords))
+        return preproc_pipe
+
+    def lemmatize(self, doc: Doc, stopwords: Set[str]) -> List[str]:
+        """
+        Perform lemmatization and stopword removal on clean text input
+        """
+        lemma_list = [
+            tok.lemma_
+            for tok in doc
+            if tok.is_alpha and tok.text.lower() not in stopwords
+        ]
+        return lemma_list
+
+    @staticmethod
+    def _chunker(iterable: List[str], total_length: int, chunksize: int):
+        """Divide an iterable into chunks that can be worked on concurrently"""
+        return (
+            iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize)
+        )
+
+    @staticmethod
+    def _flatten(list_of_lists: List[List[str]]) -> List[str]:
+        """Flatten a list of lists to a single, combined list"""
+        return [item for sublist in list_of_lists for item in sublist]
 
 
 class LinearSVM:

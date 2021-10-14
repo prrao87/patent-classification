@@ -14,20 +14,26 @@ from typing import Dict
 
 
 def create_train_valid_test(data_json: str) -> DatasetDict:
-    """
-    Returns a DatasetDict object of the training/validation/test data.
-    Use the split functionality if required, during testing.
-    """
     dataset = load_dataset(
         "json",
         data_files={"data": data_json},
-        split={
-            "train": "data[0%:70%]",
-            "valid": "data[70%:80%]",
-            "test": "data[80%:100%]",
-        },
+        split={"train": "data[:100%]"},
     )
-    return dataset
+    # 70% train, 30% test + validation
+    train_testvalid = dataset["train"].train_test_split(test_size=0.3, seed=344535)
+    # Further split the (test + validation) data into 20% test + 10% valid
+    test_valid = train_testvalid["test"].train_test_split(
+        test_size=0.66667, seed=344535
+    )
+    # Gather everything to a single DatasetDict
+    dataset_dict = DatasetDict(
+        {
+            "train": train_testvalid["train"],
+            "test": test_valid["test"],
+            "valid": test_valid["train"],
+        }
+    )
+    return dataset_dict
 
 
 def compute_metrics(pred) -> Dict[str, float]:

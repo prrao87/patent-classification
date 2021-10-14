@@ -213,7 +213,7 @@ Verify that the training loss goes down in each epoch, and that the validation F
 
 A big concern with deep learning models is the computational cost associated with making inferences on real world data in production. One approach to make the inference process more efficient is to optimize and quantize the PyTorch model via [ONNX](https://github.com/onnx/onnx), an open source framework that provides a standard interface for optimizing deep learning models and their computational graphs.
 
-On average, a **30x** speedup in CPU-based inference, along with a **4x** reduction in model size is observed for an optimized, quantized DistilBERT-ONNX model (compared to the base DistilBERT-PyTorch model that we trained on GPU).
+On average, a **10x-30x** speedup in CPU-based inference, along with a **4x** reduction in model size is possible for an optimized, quantized DistilBERT-ONNX model (compared to the base DistilBERT-PyTorch model that we trained on GPU).
 
 ### Use 🤗 Hugging Face command line module to convert to ONNX
 
@@ -222,7 +222,8 @@ See the [PyTorch documentation](https://pytorch.org/docs/stable/quantization.htm
 The following command is used to convert the PyTorch model to an ONNX model. First, `cd` to an **empty directory** in which we want the ONNX model file to be saved, and then specify the source PyTorch model path (that contains a valid `config.json`) in relation to the current path. An example is shown below.
 
 ```sh
-# Assume that the PyTorch model weights (.bin file) are in the pytorch_model/ directory
+# Assuming the PyTorch model weights (config.json and 
+# pytorch_model.bin file) are in the pytorch_model/ directory
 $ cd onnx_model
 $ python3 -m transformers.convert_graph_to_onnx \
   --framework pt \
@@ -244,20 +245,21 @@ $ python3 classifier_distilbert_evaluate.py
 ```
 
 ```
-Macro F1: 64.050 %
-Micro F1: 80.603 %
-Weighted F1: 80.041 %
-Accuracy: 80.603 %
+Macro F1: 90.687 %
+Micro F1: 91.027 %
+Weighted F1: 91.033 %
+Accuracy: 91.027 %
 ```
 
-![](img/distilbert_no_weighting.png)
+![](img/distilbert_results.png)
 
-Although the transformer-based classifier is performing much, much better on the majority classes ("G", "H"), the confusion matrix shows that it has almost no predictive power toward the minority classes (especially "D", which had far too few training samples -- just 37 overall in the original data).
+The confusion matrix shows that the DistilBERT model's results are much, much better than the baseline model's. This makes sense because the pretrained transformer + a better training regime during fine-tuning (including a warmup of the learning rate and more robust optimization) helps the model better disambiguate tokens from much smaller amounts of training data. Even though we see a 100% prediction rate for the minority class' D', the un-normalized confusion matrix (on the right of the image above) shows that we only made predictions on only **4** test samples for this class. Thus, it's a bit premature to state that the DistilBERT classifier is *truly* performing well, with such a limited test sample size on certain classes.
 
-#### Remedy
-The best way to improve the DistilBERT classifier's predictive power toward the minority class would be to obtain more training samples and to reduce overall class imbalance. This can be done by scraping and obtaining more patent data over multiple months for the minority classes ("D" and "E"). In general, a few hundred training samples per class should suffice during fine-tuning transformer models (a couple thousand would be ideal).
+To gain a better understanding of how this DistilBERT classifier will perform in the wild, it would make sense to scrape a random set of around 100 samples from the minority classes ('D' and 'E') and seeing what percentage of those are predicted correctly. However, even without cost-sensitive weights in this case, with such an imbalanced dataset, the DistilBERT classifier is showing very promising results!
 
-In addition, just like in the case with the SVM, it is possible to perform cost-sensitive weighting for the transformer model by subclassing the `Trainer` instance and passing the class weights to the `CrossEntropy` loss as follows:
+#### Note on cost-sensitive learning for transformers
+
+Just like in the case with the SVM, it is possible to perform cost-sensitive weighting for the transformer model by subclassing the `Trainer` instance and passing the class weights to the `CrossEntropy` loss as follows:
 
 ```py
 class CostSensitiveTrainer(Trainer):
@@ -274,5 +276,10 @@ class CostSensitiveTrainer(Trainer):
 ```
 
 See [this GitHub issue](https://github.com/huggingface/transformers/issues/7024) on the 🤗 Hugging Face transformers repo for more details.
+
+Running this trainer instance could potentially help the model generalize better to unseen vocabulary, although initial results show that it might not be necessary.
+
+#### Additional experiments with transformers
+Another thing to study regarding the classifier's real-world performance would be the effect of more balanced training data on classifier performance on a much larger sample of unseen data. This can be done by scraping and obtaining more patent data over multiple months for the minority classes ("D" and "E"), so that the model sees a larger vocabulary over a longer time period, allowing it to generalize better.
 
 Happy training!

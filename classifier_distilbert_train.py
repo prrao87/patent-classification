@@ -55,7 +55,7 @@ def get_encoded_data(tokenizer: AutoTokenizer, textcol: str = "text") -> Dataset
     encoded_dataset = dataset.map(
         tokenize,
         batched=True,
-        # load_from_cache_file=False
+        load_from_cache_file=False
     )
     encoded_dataset.set_format(
         "torch", columns=["input_ids", "attention_mask", "label"]
@@ -82,7 +82,7 @@ def train() -> None:
         learning_rate=4e-5,
         per_device_train_batch_size=32,
         per_device_eval_batch_size=32,
-        num_train_epochs=1,
+        num_train_epochs=3,
         # fp16=True,   # If true, enable mixed precision (16 bit + 32 bits)
         # fp16_opt_level="O1",
         # fp16_backend="auto",  # Either amp or apex fp16 backends

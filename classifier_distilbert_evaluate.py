@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
 import torch
-from typing import List, Tuple, Dict
+from typing import List, Dict
 from onnxruntime import (
     GraphOptimizationLevel,
     InferenceSession,
     SessionOptions,
 )
-from sklearn.model_selection import train_test_split
+from datasets import load_dataset, DatasetDict
 from tqdm import tqdm
 import utils
 
@@ -23,11 +23,9 @@ class DistilbertOnnxPredictor:
         self.model = self.create_model_for_provider(path_to_model)
 
     def _get_class_label(self, pred: int) -> str:
-        "Reverse lookup label name from PyTorch integer prediction value"
-        label_map = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5, "G": 6, "H": 7}
-        for key, value in label_map.items():
-            if value == pred:
-                return key
+        "Lookup label name from PyTorch integer prediction value"
+        label_map = {0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F", 6: "G", 7: "H"}
+        return label_map[pred]
 
     def create_model_for_provider(self, model_path: str) -> InferenceSession:
         "Create ONNX model based on provider (we use CPU by default)"
@@ -73,22 +71,45 @@ class DistilbertOnnxPredictor:
         return class_label
 
 
-def split_data(data_df: pd.DataFrame) -> Tuple[pd.DataFrame, ...]:
-    # Same random state as the SVM model!
-    train_test_data = train_test_split(
-        data_df["text"], data_df["label"], test_size=0.2, random_state=344535
+def create_train_valid_test(data_json: str) -> DatasetDict:
+    """
+    IMPORTANT: Use the SAME train/valid/test split with the same random seed as used in
+    the training script.
+    """
+    dataset = load_dataset(
+        "json",
+        data_files={"data": data_json},
+        split={"train": "data[:100%]"},
     )
-    return train_test_data
+    # 70% train, 30% test + validation
+    train_testvalid = dataset["train"].train_test_split(test_size=0.3, seed=344535)
+    # Further split the (test + validation) data into 20% test + 10% valid
+    test_valid = train_testvalid["test"].train_test_split(
+        test_size=0.66667, seed=344535
+    )
+    # Gather everything to a single DatasetDict
+    dataset_dict = DatasetDict(
+        {
+            "train": train_testvalid["train"],
+            "test": test_valid["test"],
+            "valid": test_valid["train"],
+        }
+    )
+    return dataset_dict
 
 
 def main(path_to_test_data: str, model: DistilbertOnnxPredictor) -> None:
-    df = utils.read_data(path_to_test_data)
-    X_train, X_test, y_train, y_test = split_data(df)
+    print("Encoding train/valid/test data as per training script's split...")
+    dataset = create_train_valid_test(path_to_test_data)
+    X_test = dataset["test"]["text"]
+    y_train = dataset["train"]["label"]
+    y_test = dataset["test"]["label"]
     # Make model predictions using the ONNX predictor
+    print("Making predictions on test set...")
     preds = pd.Series([model.predict(text) for text in tqdm(X_test)])
     # Plot confusion matrix
     fig, _ = utils.plot_confusion_matrix(
-        y_test, preds, classes=np.unique(y_train), normalize=True
+        y_test, preds, classes=np.unique(y_train), normalize=False
     )
     fig.savefig("confusion_matrix.png")
     utils.model_performance(y_test, preds)

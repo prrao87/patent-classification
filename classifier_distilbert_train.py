@@ -52,11 +52,7 @@ def get_encoded_data(tokenizer: AutoTokenizer, textcol: str = "text") -> Dataset
         tokens["label"] = labels.str2int(batch["label"])
         return tokens
 
-    encoded_dataset = dataset.map(
-        tokenize,
-        batched=True,
-        load_from_cache_file=False
-    )
+    encoded_dataset = dataset.map(tokenize, batched=True, load_from_cache_file=False)
     encoded_dataset.set_format(
         "torch", columns=["input_ids", "attention_mask", "label"]
     )

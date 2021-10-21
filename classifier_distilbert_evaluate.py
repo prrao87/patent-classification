@@ -109,7 +109,7 @@ def main(path_to_test_data: str, model: DistilbertOnnxPredictor) -> None:
     preds = pd.Series([model.predict(text) for text in tqdm(X_test)])
     # Plot confusion matrix
     fig, _ = utils.plot_confusion_matrix(
-        y_test, preds, classes=np.unique(y_train), normalize=False
+        y_test, preds, classes=np.unique(y_train), normalize=True
     )
     fig.savefig("confusion_matrix.png")
     utils.model_performance(y_test, preds)

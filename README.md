@@ -251,11 +251,17 @@ Weighted F1: 91.033 %
 Accuracy: 91.027 %
 ```
 
-![](img/distilbert_results.png)
+![](img/distilbert_results_normalized.png)
 
-The confusion matrix shows that the DistilBERT model's results are much, much better than the baseline model's. This makes sense because the pretrained transformer + a better training regime during fine-tuning (including a warmup of the learning rate and more robust optimization) helps the model better disambiguate tokens from much smaller amounts of training data. Even though we see a 100% prediction rate for the minority class' D', the un-normalized confusion matrix (on the right of the image above) shows that we only made predictions on only **4** test samples for this class. Thus, it's a bit premature to state that the DistilBERT classifier is *truly* performing well, with such a limited test sample size on certain classes.
+The confusion matrix shows that the DistilBERT model's results are much, much better than the baseline model's. This makes sense because the pretrained transformer + a better training regime during fine-tuning (including a warmup of the learning rate and more robust optimization) helps the model better disambiguate tokens from much smaller amounts of training data.
 
-To gain a better understanding of how this DistilBERT classifier will actually perform in the wild, it would make sense to scrape a random set of around 100 samples from the minority classes ('D' and 'E') and seeing what percentage of those are predicted correctly. However, even without cost-sensitive weights in this case, and with such an imbalanced dataset, the DistilBERT classifier is showing very promising results!
+However, even though we see a 100% prediction rate for the minority class 'D', the un-normalized confusion matrix (on the right of the image above) shows that we only made predictions on only **4** test samples for this class, as can be seen below.
+
+![](img/distilbert_results_unnormalized.png)
+
+Thus, it's a bit premature to state that the DistilBERT classifier is *truly* performing well, with such a limited test sample size on certain classes. To gain a better understanding of how this DistilBERT classifier will actually perform in the wild, it would make sense to scrape a random set of around 100 samples from the minority classes ('D' and 'E') from a much larger time period, and seeing what percentage of those are predicted correctly.
+
+However, even without cost-sensitive weights in this case, and with such an imbalanced dataset, it's encouraging that the DistilBERT classifier is showing such good results!
 
 #### Note on cost-sensitive learning for transformers
 
@@ -280,6 +286,6 @@ See [this GitHub issue](https://github.com/huggingface/transformers/issues/7024)
 Running this trainer instance could potentially help the model generalize better to unseen vocabulary, although initial results show that it might not be necessary.
 
 #### Additional experiments with transformers
-Another thing to study regarding the transformer model's real-world performance would be the effect of more balanced training data on classification performance from a much larger sample of unseen data. This can be done by scraping and obtaining more patent data over multiple months for the minority classes ("D" and "E"), so that the model sees a larger vocabulary over a longer time period, allowing it to generalize better.
+A better way to study the transformer model's real-world performance would be to look at the effect of more balanced training data on classification performance from a much larger sample of unseen data. This can be done by scraping and obtaining more patent data over multiple months for the minority classes ("D" and "E"), so that the model sees a larger vocabulary over a longer time period, allowing it to generalize better.
 
 Happy training!

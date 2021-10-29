@@ -26,7 +26,7 @@ In addition, more information on the content taxonomy is available in the follow
 
 
 ## Installation
-This step assumes that Python 3.9+ is installed. Set up a virtual environment and install from requirements.txt:
+This step assumes that Python 3.9+ is installed. Set up a virtual environment and install from `requirements.txt`:
 
 ```sh
 $ python3 -m venv .venv
@@ -46,6 +46,9 @@ Within the activated virtual environment, once the dependencies are installed fr
 $ python3 -m spacy download en_core_web_sm
 ```
 This provides the standard (small) spaCy's English language model for downstream lemmatization, explained below.
+
+### Download and place a file of stopwords
+For stopword removal (to train a linear model), we need a stopwords file. The [NLTK English stopword list](https://gist.github.com/sebleier/554280) is downloaded to the file `stopwords.txt`, placed at the root level of this repo.
 
 ## Preprocessing
 The preprocessing script requires that an unzipped raw XML file (with information on hundreds of patents) exists in the `raw_data/` directory. As an example, the following file is [downloaded from the source](https://bulkdata.uspto.gov/data/patent/grant/redbook/2020/I20200107.tar), uncompressed, and stored in the below path in XML format:
@@ -82,10 +85,10 @@ The baseline model trained is a linear SVM, via the [`sklearn` library's `SGDCla
 To reduce the number of redundant features the model has to learn, it makes sense to clean up the text data in a way that words are collapsed to their root form. Lemmatization is a good option, as it reduces inflectional forms of a word ("condenses" becomes "condense"). [**spaCy**](https://spacy.io/) is an NLP library that allows us to efficiently process and lemmatize text through a lookup process that can be made concurrent to deal with large amounts of data in batches.
 
 The following data processing steps are performed on the `data.json` file generated in the previous step:
-* __Lowercasing__: Further reduces the number of features to be learned ("Condense" and "condense" mean one and the same thing)
-* __Stopword removal__: Allows us to ignore useless tokens that don't add discriminatory potential ("a", "an", "the")
-* __Lemmatization__: Reduces inflectional forms of words to their root form (lemmas)
-* __Combine title and abstract__: The title of a patent contains useful tokens that are commonly repeated in the abstract -- this could help strengthen the training signal by allowing the model to learn the importance of repeated tokens across classes
+* __Lowercasing__: Feature reduction technique ("Condense" and "condense" mean one and the same thing)
+* __Stopword removal__: Feature reduction technique to removes useless tokens that don't add to the model's discriminatory potential ("a", "an", "the", ...). For this project, the [NLTK list of English stopwords](https://gist.github.com/sebleier/554280) is used.
+* __Lemmatization__: Yet another way to reduce features, by reducing inflectional forms of words to their root form (lemmas)
+* __Combine title and abstract__: The title of a patent contains useful tokens that are commonly repeated in the abstract, so these two fields from the raw data are concatenated prior to training. The hypothesis is that could help strengthen the training signal by allowing the model to learn the importance of repeated tokens across classes.
 
 ### Cost-sensitive weighting
 In a classification task, it is possible to consider misclassification cost into account during training. This is done by changing the penalty imposed on the learner for misclassifying classes, based on the proportion of training samples per class. In `sklearn`, this can be done by applying a balanced weighting function. The “balanced” term implies that the values of the true class labels are adjusted using weights that are inversely proportional to class frequencies in the input data as `n_samples / (n_classes * np.bincount(y))`. The following results are obtained.
@@ -116,9 +119,9 @@ E     145
 D      37
 ```
 
-### Experiments and SVM results
+### Training the SVM classifier
 
-The SVM trainer and evaluator is run as follows:
+The SVM trainer is run as follows:
 sh
 ```
 $ python3 classifier_svm.py
@@ -164,8 +167,14 @@ Accuracy: 66.739 %
 
 In this case, the macro F1-score is the highest among all the cases, because of uniformly better performance across all classes. The weighted F1-score and accuracy are also significantly higher than the cases which used hinge loss, indicating that this choice of loss function is more suited to the feature space of our problem.
 
+The following normalized confusion matrix was obtained with the model that used the modified Huber loss function.
+
+![](img/svm_modified_huber_best.png)
+
+Each value in the diagonal cells represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data results in model with a moderately decent predictive power for the majority and minority classes in this dataset.
+
 ### Best `SGDClassifier` model parameters for the baseline
-Without running any further hyperparameter tuning or grid search experiments, the best baseline model results were obtained using the below parameters.
+Without running any further hyperparameter tuning or grid search experiments, the best baseline model results were obtained from experiment #3 using the modified huber loss function. The remaining parameters for the best model as specified in the script are shown below.
 
 ```py
 (
@@ -182,11 +191,6 @@ Without running any further hyperparameter tuning or grid search experiments, th
 )
 ```
 
-The following normalized confusion matrix was obtained with the best model that uses the modified Huber loss function.
-
-![](img/svm_modified_huber_best.png)
-
-Each value in the diagonal cells represents the fraction of samples in each class that were correctly classified. As can be seen, applying class weighting based on the imbalance in the training data results in model with a moderately decent predictive power for the majority and minority classes in this dataset.
 
 ---
 ## Can we do better with transformers?
@@ -259,7 +263,7 @@ However, even though we see a 100% prediction rate for the minority class 'D', t
 
 ![](img/distilbert_results_unnormalized.png)
 
-Thus, it's a bit premature to state that the DistilBERT classifier is *truly* performing well, with such a limited test sample size on certain classes. To gain a better understanding of how this DistilBERT classifier will actually perform in the wild, it would make sense to scrape a random set of around 100 samples from the minority classes ('D' and 'E') from a much larger time period, and seeing what percentage of those are predicted correctly.
+Thus, it is a bit premature to state that the DistilBERT classifier is *truly* performing well, with such a limited test sample size on certain classes. To gain a better understanding of how this DistilBERT classifier will actually perform in the wild, it would make sense to scrape a random set of around 100 samples from the minority classes ('D' and 'E') from a much larger time period, and seeing what percentage of those are predicted correctly.
 
 However, even without cost-sensitive weights in this case, and with such an imbalanced dataset, it's encouraging that the DistilBERT classifier is showing such good results!
 

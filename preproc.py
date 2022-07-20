@@ -5,12 +5,14 @@ Code to preprocess raw XML data downloaded from https://bulkdata.uspto.gov/
   Python
 * Writes out text data (from abstracts/titles) & class labels to a JSON file
 """
-import os
+import argparse
 import json
 from glob import glob
+from pathlib import Path
+from typing import Dict, List
 from xml.etree.ElementTree import Element, parse
+
 from tqdm import tqdm
-from typing import List, Dict
 
 
 def separate_xml(infile: str, outfile_path: str = "clean_data") -> None:
@@ -18,9 +20,11 @@ def separate_xml(infile: str, outfile_path: str = "clean_data") -> None:
     Copies individual XML chunks that each contain valid, parsable XML trees and
     writes to new files.
     """
-    os.makedirs(outfile_path, exist_ok=True)
+    clean_dir = Path.cwd() / "clean_data"
+    clean_dir.mkdir(exist_ok=True, parents=True)
+    # os.makedirs(outfile_path, exist_ok=True)
     counter = 1
-    outfile = open(os.path.join(outfile_path, f"{counter}.xml"), "w")
+    outfile = open(Path.cwd() / outfile_path / f"{counter}.xml", "w")
     start_pattern = """<?xml version="1.0" encoding="UTF-8"?>"""
     end_pattern = """</us-patent-grant>"""
 
@@ -35,7 +39,7 @@ def separate_xml(infile: str, outfile_path: str = "clean_data") -> None:
                 outfile.write(end_pattern + "\n")
                 outfile.close()
                 counter += 1
-                outfile = open(os.path.join(outfile_path, f"{counter}.xml"), "w")
+                outfile = open(Path.cwd() / outfile_path / f"{counter}.xml", "w")
             elif copy:
                 outfile.write(line)
     outfile.close()
@@ -108,30 +112,31 @@ def extract_abstracts_and_titles(xml_file: str) -> Dict[str, str]:
     return data
 
 
-def write_json_data(xml_files: List[str], dir: str) -> None:
+def write_json_data(xml_files: List[str]) -> None:
     """
     Iterate through each XML file and write data to a JSON file
     """
-    with open("data.jsonl", "w") as f:
+    fname = Path(raw_xml_file).stem
+    with open(Path.cwd() / f"data_{fname}.jsonl", "w") as f:
         for xml_file in tqdm(xml_files):
             data = extract_abstracts_and_titles(xml_file)
             if data:
                 f.write(json.dumps(data) + "\n")
 
 
-def main(dir: str, raw_xml_file: str) -> None:
-    # path to input raw XML data
-    xml_file = os.path.join(dir, raw_xml_file)
+def main(raw_xml_file: str) -> None:
     # path to output clean XML data
     clean_data_path = "clean_data"
     # separate into valid XML chunks and write to individual files
-    separate_xml(xml_file, clean_data_path)
+    separate_xml(raw_xml_file, clean_data_path)
     # Read in XML files and write to JSON
     xml_files = get_xml_file_list(clean_data_path)
-    write_json_data(xml_files, dir)
+    write_json_data(xml_files)
 
 
 if __name__ == "__main__":
-    dir = "raw_data"
-    raw_xml_file = "ipg200107.xml"
-    main(dir, raw_xml_file)
+    parser = argparse.ArgumentParser("XML to JSONL converter")
+    parser.add_argument("--file", "-f", required=True, help="Path to raw XML file")
+    args = vars(parser.parse_args())
+    raw_xml_file = args["file"]
+    main(raw_xml_file)

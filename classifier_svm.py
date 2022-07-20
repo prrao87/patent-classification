@@ -14,6 +14,8 @@ F: Mechanical engineering; lighting; heating; weapons; blasting
 G: Physics
 H: Electricity
 """
+import argparse
+from pathlib import Path
 from typing import List, Set, Tuple
 
 import joblib
@@ -128,7 +130,7 @@ class LinearSVM:
         fig.savefig("confusion_matrix.png")
 
 
-def transform_data(data_file: str = "data.jsonl") -> pd.DataFrame:
+def transform_data(data_file: str) -> pd.DataFrame:
     """
     Read in the data JSON and transform it to contain a column with lemmatized text
     """
@@ -143,13 +145,19 @@ def transform_data(data_file: str = "data.jsonl") -> pd.DataFrame:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser("SVM classifier trainer")
+    parser.add_argument("--file", "-f", default="data.jsonl", help="Path to clean JSON line-delimited (jsonl) file")
+    args = vars(parser.parse_args())
+    if not Path(args["file"]).is_file():
+        raise parser.error(f"\n{args['file']} not found -- please check that it exists and specify as input to script with the -f argument.")
+
     # Load spaCy language model for lemmatization
     nlp = spacy.load("en_core_web_sm", disable=["tagger", "parser", "ner"])
     nlp.add_pipe("sentencizer")
     STOPWORDS = get_stopwords("stopwords.txt")
 
     print("Transforming and lemmatizing data")
-    data_df = transform_data(nlp, data_file="data.jsonl")
+    data_df = transform_data(data_file=args['file'])
     svm = LinearSVM(data_df)
     model = svm.train_and_evaluate()
     # Dump model to disk using joblib

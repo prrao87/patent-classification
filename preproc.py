@@ -112,7 +112,7 @@ def write_json_data(xml_files: List[str], dir: str) -> None:
     """
     Iterate through each XML file and write data to a JSON file
     """
-    with open(f"data_{dir}.jsonl", "w") as f:
+    with open("data.jsonl", "w") as f:
         for xml_file in tqdm(xml_files):
             data = extract_abstracts_and_titles(xml_file)
             if data:
@@ -121,7 +121,7 @@ def write_json_data(xml_files: List[str], dir: str) -> None:
 
 def main(dir: str, raw_xml_file: str) -> None:
     # path to input raw XML data
-    xml_file = os.path.join("./raw_data", dir, raw_xml_file)
+    xml_file = os.path.join(dir, raw_xml_file)
     # path to output clean XML data
     clean_data_path = "clean_data"
     # separate into valid XML chunks and write to individual files
@@ -132,6 +132,6 @@ def main(dir: str, raw_xml_file: str) -> None:
 
 
 if __name__ == "__main__":
-    dir = "ipgb20200107_wk01"
-    raw_xml_file = "ipgb20200107.xml"
+    dir = "raw_data"
+    raw_xml_file = "ipg200107.xml"
     main(dir, raw_xml_file)

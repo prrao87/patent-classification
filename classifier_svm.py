@@ -14,84 +14,46 @@ F: Mechanical engineering; lighting; heating; weapons; blasting
 G: Physics
 H: Electricity
 """
+from typing import List, Set, Tuple
+
+import joblib
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import spacy
-from spacy.language import Language
-from spacy.tokens.doc import Doc
-from typing import List, Tuple, Set
+from tqdm import tqdm
+
 import utils
 
-# Concurrency
-from joblib import Parallel, delayed, dump
-from functools import partial
-from multiprocessing import cpu_count
+tqdm.pandas(desc="Lemmatization progress")
 
 # ML
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.utils import class_weight
 
 
-class ConcurrentPreprocessor:
+def get_stopwords(filename: str = "stopwords.txt") -> Set[str]:
     """
-    Concurrently preprocess text for downstream ML model training
+    Read in stopwords from a newline-separated text file
     """
+    with open(filename) as f:
+        stopwords = set(sorted([word.strip() for word in f]))
+    return stopwords
 
-    def __init__(self, nlp: Language) -> None:
-        self.nlp = nlp
 
-    def run(
-        self, texts: List[str], stopwords: Set[str], chunksize: int = 200
-    ) -> List[str]:
-        """
-        Run concurrent jobs to preprocess a sequence of texts for downstream training
-        """
-        n_jobs = cpu_count() - 1  # Avoid max core usage
-        executor = Parallel(
-            n_jobs=n_jobs, backend="multiprocessing", prefer="processes"
-        )
-        do = delayed(partial(self.process_chunk, stopwords))
-        tasks = (
-            do(chunk) for chunk in self._chunker(texts, len(texts), chunksize=chunksize)
-        )
-        result = self._flatten(executor(tasks))
-        return result
-
-    def process_chunk(self, stopwords: Set[str], texts: List[str]) -> List[List[str]]:
-        """
-        Apply a spaCy language modelling pipeline and process a chunk of text
-        """
-        preproc_pipe = []
-        for doc in self.nlp.pipe(texts, batch_size=20):
-            preproc_pipe.append(self.lemmatize(doc, stopwords))
-        return preproc_pipe
-
-    def lemmatize(self, doc: Doc, stopwords: Set[str]) -> List[str]:
-        """
-        Perform lemmatization and stopword removal on clean text input
-        """
-        lemma_list = [
-            tok.lemma_
-            for tok in doc
-            if tok.is_alpha and tok.text.lower() not in stopwords
-        ]
-        return lemma_list
-
-    @staticmethod
-    def _chunker(iterable: List[str], total_length: int, chunksize: int):
-        """Divide an iterable into chunks that can be worked on concurrently"""
-        return (
-            iterable[pos : pos + chunksize] for pos in range(0, total_length, chunksize)
-        )
-
-    @staticmethod
-    def _flatten(list_of_lists: List[List[str]]) -> List[str]:
-        """Flatten a list of lists to a single, combined list"""
-        return [item for sublist in list_of_lists for item in sublist]
+def lemmatize(text: str) -> List[str]:
+    """Perform lemmatization and stopword removal in the clean text
+    Returns a list of lemmas
+    """
+    doc = nlp(text)
+    lemma_list = [
+        str(tok.lemma_).lower()
+        for tok in doc
+        if tok.is_alpha and tok.text.lower() not in STOPWORDS
+    ]
+    return lemma_list
 
 
 class LinearSVM:
@@ -166,40 +128,29 @@ class LinearSVM:
         fig.savefig("confusion_matrix.png")
 
 
-def get_stopwords(filename: str = "stopwords.txt") -> Set[str]:
-    """
-    Read in stopwords from a newline-separated text file
-    """
-    with open(filename) as f:
-        stopwords = set(sorted([word.strip() for word in f]))
-    return stopwords
-
-
-def transform_data(
-    nlp: Language, data_file: str = "data.json", stopword_file: str = "stopwords.txt"
-) -> pd.DataFrame:
+def transform_data(data_file: str = "data.jsonl") -> pd.DataFrame:
     """
     Read in the data JSON and transform it to contain a column with lemmatized text
     """
     df = utils.read_data(data_file)
-    stopwords = get_stopwords(stopword_file)
-    processor = ConcurrentPreprocessor(nlp)
-
-    # Concatenate title and abstract text prior to training
+    # Concatenate title and abstract columns prior to training model
     df["text"] = df.apply(lambda x: f'{x["title"]}. {x["abstract"]}', axis=1)
-    df["list_lemmas"] = processor.run(df["text"], stopwords)
-    # Convert list of lemmas to a string, joined by spaces
+    # Lemmatize text for better feature extraction
+    df["list_lemmas"] = df["text"].progress_apply(lemmatize)
+    # # Convert list of lemmas to a string, joined by spaces
     df["lemmas"] = df["list_lemmas"].str.join(" ")
     return df
 
 
 if __name__ == "__main__":
     # Load spaCy language model for lemmatization
-    nlp = spacy.load("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm", disable=["tagger", "parser", "ner"])
+    nlp.add_pipe("sentencizer")
+    STOPWORDS = get_stopwords("stopwords.txt")
 
     print("Transforming and lemmatizing data")
-    data_df = transform_data(nlp, data_file="data_ipgb20201229_wk52.jsonl")
+    data_df = transform_data(nlp, data_file="data.jsonl")
     svm = LinearSVM(data_df)
     model = svm.train_and_evaluate()
     # Dump model to disk using joblib
-    dump(model, "svm_model.joblib")
+    joblib.dump(model, "svm_model.joblib")
